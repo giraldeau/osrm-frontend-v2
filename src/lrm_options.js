@@ -29,9 +29,10 @@ module.exports = {
     stepClassName: 'osrm-directions-step',
     geocodersClassName: 'osrm-directions-inputs',
     createGeocoder: createGeocoder,
-    showAlternatives: true,
+    itineraryBuilder: 'osrm-directions-steps',
+    showAlternatives: false,
     useZoomParameter: false,
-    routeDragInterval: 200
+    routeDragInterval: 100
   },
   popup: {
     removeButtonClass: 'osrm-directions-icon osrm-close-light-icon',

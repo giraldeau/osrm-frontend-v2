@@ -1,8 +1,8 @@
 'use strict';
 
-var L = require('leaflet');
 var Geocoder = require('leaflet-control-geocoder');
 var LRM = require('leaflet-routing-machine');
+var mapseedSidebar = require("mapseed-sidebar/js/leaflet-sidebar");
 var itineraryBuilder = require('./itinerary_builder');
 var locate = require('leaflet.locatecontrol');
 var options = require('./lrm_options');
@@ -37,6 +37,11 @@ mapLayer = mapLayer.reduce(function(title, layer) {
   return title;
 });
 
+//Display EvNav info
+var sidebar = L.control.sidebar('evnav');
+sidebar.addTo(map);
+
+
 /* Leaflet Controls */
 L.control.layers(mapLayer, overlay, {
   position: 'bottomleft'
@@ -67,8 +72,8 @@ var ReversablePlan = L.Routing.Plan.extend({
 
 /* Setup markers */
 function makeIcon(i, n) {
-  var url = 'images/marker-via-icon-2x.png';
-  var markerList = ['images/marker-start-icon-2x.png', 'images/marker-end-icon-2x.png'];
+  var chargerIcon = 'images/marker-charger-icon-2x.png';
+  var markerList = ['images/marker-end-icon-2x.png', 'images/marker-end-icon-2x.png'];
   if (i === 0) {
     return L.icon({
       iconUrl: markerList[0],
@@ -84,9 +89,9 @@ function makeIcon(i, n) {
     });
   } else {
     return L.icon({
-      iconUrl: url,
-      iconSize: [20, 56],
-      iconAnchor: [10, 28]
+      iconUrl: chargerIcon,
+      iconSize: [25, 70],
+      iconAnchor: [10, 36]
     });
   }
 }
@@ -127,10 +132,8 @@ var plan = new ReversablePlan([], {
   }
 });
 
-L.extend(L.Routing, itineraryBuilder);
-
 // add marker labels
-var controlOptions = {
+var lrmControl = L.Routing.control({
   plan: plan,
   routeWhileDragging: options.lrm.routeWhileDragging,
   lineOptions: options.lrm.lineOptions,
@@ -145,30 +148,7 @@ var controlOptions = {
   serviceUrl: leafletOptions.services[0].path,
   useZoomParameter: options.lrm.useZoomParameter,
   routeDragInterval: options.lrm.routeDragInterval
-};
-var router = (new L.Routing.OSRMv1(controlOptions));
-router._convertRouteOriginal = router._convertRoute;
-router._convertRoute = function(responseRoute) {
-  // monkey-patch L.Routing.OSRMv1 until it's easier to overwrite with a hook
-  var resp = this._convertRouteOriginal(responseRoute);
-
-  if (resp.instructions && resp.instructions.length) {
-    var i = 0;
-    responseRoute.legs.forEach(function(leg) {
-      leg.steps.forEach(function(step) {
-        // abusing the text property to save the origina osrm step
-        // for later use in the itnerary builder
-        resp.instructions[i].text = step;
-        i++;
-      });
-    });
-  };
-
-  return resp;
-};
-var lrmControl = L.Routing.control(Object.assign(controlOptions, {
-  router: router
-})).addTo(map);
+}).addTo(map);
 var toolsControl = tools.control(localization.get(mergedOptions.language), localization.getLanguages(), options.tools).addTo(map);
 var state = state(map, lrmControl, toolsControl, mergedOptions);
 
@@ -176,6 +156,67 @@ plan.on('waypointgeocoded', function(e) {
   if (plan._waypoints.filter(function(wp) { return !!wp.latLng; }).length < 2) {
     map.panTo(e.waypoint.latLng);
   }
+});
+
+var makeWaypoint = function(lat, lon) {
+  return L.Routing.waypoint(L.latLng(lat, lon));
+}
+
+var sendEvnavRequest = function(evnavUrl, callback) {
+  //evnavUrl = 'http://localhost:8080/route/v1/evnav/-73.57225,45.53847;-71.28751,46.79206?battery=18&SOC_act=0.8'
+  $.ajax({
+    url: evnavUrl,
+    dataType: 'json',
+    success: callback,
+    error: function(req, status, error) {
+      console.log(error);
+    }
+  })
+}
+
+var waypointLocToString = function(wp) {
+  return wp.latLng.lng + "," + wp.latLng.lat;
+}
+
+plan.on('waypointdragend', function(e) {
+  var wps = plan.getWaypoints();
+  if (wps.length < 2)
+      return;
+  var src = wps[0];
+  var dst = wps[wps.length - 1];
+  var queryUrl = "http://localhost:8080/route/v1/evnav/" +
+      waypointLocToString(src) + ";" + waypointLocToString(dst) + "?" +
+      "battery=21&" +
+      "SOC_act=1.0&" +
+      "SOC_min=0.1&" +
+      "SOC_max=0.8&" +
+      "efficiency=0.190&" +
+      "power_avg=33.0";
+  console.log("queryUrl:" + queryUrl);
+  sendEvnavRequest(queryUrl, function(data) {
+    if (data.code === "Ok") {
+      var wps = plan.getWaypoints();
+      if (data.message === "reachable") {
+        lrmControl.options.lineOptions.styles[0].color = '#022bb1';
+        var steps = data.charging_steps;
+        var newWps = [wps[0]];
+        for (var i = 0; i < steps.length; i++) {
+          var lon = steps[i]["location"][0];
+          var lat = steps[i]["location"][1];
+          var chargerWP = makeWaypoint(lat, lon)
+          chargerWP.is_charger = true;
+          newWps.push(chargerWP);
+        }
+        newWps.push(wps[wps.length - 1]);
+        plan.setWaypoints(newWps);
+
+      } else {
+        // unreachable with an electric car
+        lrmControl.options.lineOptions.styles[0].color = '#b10214';
+        plan.setWaypoints([wps[0], wps[wps.length - 1]]);
+      }
+    }
+  });
 });
 
 // add onClick event
