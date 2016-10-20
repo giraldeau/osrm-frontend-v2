@@ -200,7 +200,7 @@ plan.on('waypointdragend', function(e) {
       return;
   var src = wps[0];
   var dst = wps[wps.length - 1];
-  var queryUrl = "http://localhost:8080/route/v1/evnav/" +
+  var queryUrl = "http://evnav.openrapids.net:8080/route/v1/evnav/" +
       waypointLocToString(src) + ";" + waypointLocToString(dst) + "?" +
       "battery=21&" +
       "SOC_act=1.0&" +
