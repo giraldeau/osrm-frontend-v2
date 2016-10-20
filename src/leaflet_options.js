@@ -1,6 +1,6 @@
 'use strict';
 
-var streets = L.tileLayer('https://api.tiles.mapbox.com/v4/mapbox.streets/{z}/{x}/{y}@2x.png?access_token=pk.eyJ1IjoibXNsZWUiLCJhIjoiclpiTWV5SSJ9.P_h8r37vD8jpIH1A6i1VRg', {
+var streets = L.tileLayer('https://api.mapbox.com/styles/v1/fgiraldeau/ciuhqlhlg001i2jmic5t3yxs0/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZmdpcmFsZGVhdSIsImEiOiJjaW82M3dxY2UwMjZ2dmFramx1NndnNW5wIn0.uE9uljOkZ0Ag_N3PLOy4RA', {
     attribution: '<a href="https://www.mapbox.com/about/maps">© Mapbox</a> <a href="http://openstreetmap.org/copyright">© OpenStreetMap</a> | <a href="http://mapbox.com/map-feedback/">Improve this map</a>'
   }),
   outdoors = L.tileLayer('https://api.tiles.mapbox.com/v4/mapbox.outdoors/{z}/{x}/{y}@2x.png?access_token=pk.eyJ1IjoibXNsZWUiLCJhIjoiclpiTWV5SSJ9.P_h8r37vD8jpIH1A6i1VRg', {
@@ -28,7 +28,7 @@ module.exports = {
   },
   services: [{
     label: 'Automobile',
-    path: 'https://router.project-osrm.org/route/v1'
+    path: 'http://evnav.openrapids.net:5000/route/v1'
   }],
   layer: [{
     'Mapbox Streets': streets,
